@@ -1,0 +1,255 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UNICHAT - Modern Chat App</title>
+    <style>
+  body {
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      background-color: #f0f4f8;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+  }
+
+  #chat-container {
+      width: 100%;
+      max-width: 600px;
+      height: 80%;
+      background-color: #fff;
+      border-radius: 10px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+  }
+
+  #header {
+      background-color: #007bff;
+      color: #fff;
+      padding: 15px;
+      text-align: center;
+      font-size: 20px;
+      font-weight: bold;
+  }
+
+  #messages {
+      flex-grow: 1;
+      padding: 20px;
+      overflow-y: auto;
+      background-color: #e9eff5;
+  }
+
+  .message {
+      margin-bottom: 15px;
+      max-width: 70%;
+      padding: 10px;
+      border-radius: 8px;
+      position: relative;
+      font-size: 14px;
+      line-height: 1.4;
+      display: flex;
+      justify-content: space-between;
+  }
+
+  .sender {
+      align-self: flex-end;
+      background-color: #d1e7ff;
+      border-bottom-right-radius: 0;
+  }
+
+  .receiver {
+      align-self: flex-start;
+      background-color: #fff;
+      border-bottom-left-radius: 0;
+      border: 1px solid #ccc;
+  }
+
+  .message-actions {
+      font-size: 12px;
+      color: #007bff;
+      cursor: pointer;
+      margin-left: 5px;
+  }
+
+  #form {
+      display: flex;
+      background-color: #f0f0f0;
+      padding: 10px;
+      border-top: 1px solid #ddd;
+      align-items: center;
+  }
+
+  #form input[type="text"] {
+      flex-grow: 1;
+      padding: 10px;
+      border: none;
+      border-radius: 20px;
+      font-size: 14px;
+      outline: none;
+      margin-right: 10px;
+  }
+
+  #form input[type="file"] {
+      display: none;
+  }
+
+  #form label {
+      margin-right: 10px;
+      cursor: pointer;
+  }
+
+  #form input[type="submit"] {
+      background-color: #007bff;
+      color: #fff;
+      border: none;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      font-size: 18px;
+      cursor: pointer;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+  }
+
+  @media (max-width: 768px) {
+      #chat-container {
+          width: 100%;
+          height: 100%;
+          border-radius: 0;
+      }
+  }
+
+</style>
+</head>
+
+<body>
+<div id="chat-container">
+  <div id="header">UNICHAT</div>
+  
+  <div id="messages">
+      <!-- Messages will appear here -->
+  </div>
+  
+  <form id="form">
+      <label for="file-input">
+          <img src="https://img.icons8.com/material-outlined/24/000000/attach.png" alt="Attach">
+      </label>
+      <input id="file-input" type="file" />
+      <input type="text" name="message" placeholder="Type a message" autocomplete="off" />
+      <input type="submit" value="&#x27A4;" />
+  </form>
+</div>
+
+ 
+ 
+   <script>
+ 
+     let url = `ws://${window.location.host}/ws/socket-server/`;
+ 
+     const chatSocket = new WebSocket(url);
+ 
+     let senderName = localStorage.getItem('senderName');
+     if (!senderName) {
+       localStorage.setItem('senderName', senderName);
+     }
+ 
+     chatSocket.onmessage = function (e) {
+       let data = JSON.parse(e.data);
+       console.log('Data:', data);
+ 
+       if (data.type === 'chat') {
+         let messages = document.getElementById('messages')
+         let cssClass = data.sender === senderName? 'sender' : 'receiver';
+         messages.insertAdjacentHTML('beforeend', `<div class="${cssClass}">
+         <p>${data.message}</p>
+       </div>`)
+       }
+     }
+     let form = document.getElementById('form')
+     form.addEventListener('submit', (e) => {
+       e.preventDefault()
+       let message = e.target.message.value
+       chatSocket.send(JSON.stringify({
+         'message': message,
+         'sender': senderName
+       }))
+       form.reset()
+     })
+   </script>
+
+
+   <script>
+    // JavaScript code for message handling
+
+    const messagesContainer = document.getElementById('messages');
+
+    function addMessage(messageContent, sender) {
+        const messageDiv = document.createElement('div');
+        messageDiv.classList.add('message', sender ? 'sender' : 'receiver');
+
+        const messageText = document.createElement('p');
+        messageText.textContent = messageContent;
+        messageDiv.appendChild(messageText);
+
+        // Actions for edit, delete, reply
+        const actionsDiv = document.createElement('div');
+        actionsDiv.innerHTML = `
+            <span class="message-actions" onclick="replyMessage('${messageContent}')">Reply</span>
+            <span class="message-actions" onclick="editMessage(this)">Edit</span>
+            <span class="message-actions" onclick="deleteMessage(this)">Delete</span>
+        `;
+        messageDiv.appendChild(actionsDiv);
+
+        messagesContainer.appendChild(messageDiv);
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+
+    function replyMessage(messageContent) {
+        const inputField = document.querySelector('#form input[type="text"]');
+        inputField.value = `Replying to: ${messageContent} `;
+        inputField.focus();
+    }
+
+    function editMessage(actionElement) {
+        const messageDiv = actionElement.closest('.message');
+        const messageText = messageDiv.querySelector('p');
+        const inputField = document.querySelector('#form input[type="text"]');
+        inputField.value = messageText.textContent;
+        inputField.focus();
+
+        // Optionally: Add logic to save the edited message back to the chat
+    }
+
+    function deleteMessage(actionElement) {
+        const messageDiv = actionElement.closest('.message');
+        messageDiv.remove();
+    }
+
+    document.getElementById('form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const inputField = e.target.message;
+        const messageContent = inputField.value.trim();
+        if (messageContent) {
+            addMessage(messageContent, true);
+            inputField.value = '';
+        }
+    });
+
+    document.getElementById('file-input').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            addMessage(`Sent a file: ${file.name}`, true);
+        }
+    });
+
+</script>
+
+   
+ </body>
